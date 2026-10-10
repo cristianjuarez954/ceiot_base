@@ -1,0 +1,8 @@
+env
+.env
+venv
+.venv
+request_example.json
+db.sqlite3
+migrations
+__pycache__
