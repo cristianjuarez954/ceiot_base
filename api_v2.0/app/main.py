@@ -3,6 +3,7 @@ from typing import Annotated, List
 
 from contextlib import asynccontextmanager 
 from fastapi import FastAPI, Form, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from .crud import devices_crud, mesurements_crud
@@ -20,8 +21,8 @@ async def lifespan(app: FastAPI):
     await mesurements_crud.create_mesurement({"id": "02", "t": "17", "p": "102002.00"})
     logger.info("mongo measurement database Up")
     try:
-        await devices_crud.create_device({"id": "02", "name": "Fake Device 02", "key": "234567"})
-        await devices_crud.create_device({"id": "00", "name": "Fake Device 00", "key": "123456"})
+        await devices_crud.create_device({"device_id": "02", "name": "Fake Device 02", "key": "234567"})
+        await devices_crud.create_device({"device_id": "00", "name": "Fake Device 00", "key": "123456"})
         logger.info("sql device database up")
     except HTTPException as e:
         logger.warning("Ya existian los dispositivos")
@@ -51,13 +52,14 @@ async def create_mesurement(id: Annotated[str, Form()], key: Annotated[str, Form
 @app.post("/device",response_model=str)
 async def create_device(id: Annotated[str, Form()], name: Annotated[str, Form()], key: Annotated[str, Form()]):
     logger.info("device id: %s name: %s key: %s",id,name,key)
-    await devices_crud.create_device({"id": id, "name": name, "key": key}) 
+    await devices_crud.create_device({"device_id": id, "name": name, "key": key}) 
     return "received new device"
 
-@app.get("/web/device",response_model=str)
+@app.get("/web/device",response_class=HTMLResponse)
 async def get_web_devices():
     logger.info("Getting devices...")
-    html_devices=["<tr><td><a href=/web/device/{}>{}</a></td><td>{}</td><td>{}</td></tr>".format(device["id"],device["id"],device["name"],device["key"]) for device in devices]
+    devices = await devices_crud.get_devices()
+    html_devices=["<tr><td><a href=/web/device/{}>{}</a></td><td>{}</td><td>{}</td></tr>".format(device["device_id"],device["device_id"],device["name"],device["key"]) for device in devices]
     return """
     <html>
 		<head><title>Sensores</title></head>
@@ -69,7 +71,7 @@ async def get_web_devices():
         </body>"
 	</html>""".format(html_devices)
 
-@app.get("/web/device/{id}",response_model=str)
+@app.get("/web/device/{id}",response_class=HTMLResponse)
 async def get_web_device_by_id(id):
     logger.info("Getting device %s",id)
     device =await devices_crud.get_device(id) 
@@ -81,9 +83,9 @@ async def get_web_device_by_id(id):
             id  : {}<br/>
             Key : {}
         </body>
-    </html>""".format(device["name"],device["name"],device["id"],device["key"])
+    </html>""".format(device["name"],device["name"],device["device_id"],device["key"])
 
-@app.get("/term/device/{id}",response_model=str)
+@app.get("/term/device/{id}",response_class=HTMLResponse)
 async def get_term_device_by_id(id):
     logger.info("Getting device %s",id)
     device =await devices_crud.get_device(id) 
@@ -91,7 +93,7 @@ async def get_term_device_by_id(id):
         Device name \33[31m {} \33[0m
         id   \33[32m {} \33[0m
         key  \33[33m {} \33[0m
-    """.format(device["name"],device["id"],device["key"])
+    """.format(device["name"],device["device_id"],device["key"])
 
 
 @app.get("/measurement",response_model=List[dict])
